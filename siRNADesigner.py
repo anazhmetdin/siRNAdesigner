@@ -166,6 +166,8 @@ candidates = dict()
 # Test each 23 nucleotide for some features
 for i in range(minStart, maxEnd):
     candidate = gene[i:i+23]
+    if candidate in candidates:
+        continue
     Gcount = candidate.count('Gcount')
     Ccount = candidate.count('Ccount')
     GCcount = Gcount + Ccount
@@ -203,7 +205,7 @@ for cand in candidates:
     guide = ''
     passenger = ''
     for nucleotide in range(20, -1, -1):
-        guide = guide + cand[nucleotide]
+        guide = guide + compDict[cand[nucleotide]]
     candidates[cand].append(guide)
     for nucleotide in range(2, 23):
         if cand[nucleotide] == 'T':
