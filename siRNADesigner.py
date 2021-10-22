@@ -198,7 +198,6 @@ for i in range(minStart, maxEnd):
                                         candidates[candidate] = [
                                             i+1, i+23, AUcount]
 
-# phase 2:
 compDict = {'A': 'U', 'T': 'A', 'C': 'G', 'G': 'C'}
 for cand in candidates:
     guide = ''
@@ -212,6 +211,7 @@ for cand in candidates:
         else:
             passenger = passenger + cand[nucleotide]
     candidates[cand].append(passenger)
+    # phase 2:
     if candidates[cand][3][0] == 'U':
         candidates[cand][2] += 2
     if candidates[cand][3][0] == 'A':
@@ -221,3 +221,10 @@ for cand in candidates:
         candidates[cand][2] += 1
     else:
         candidates[cand][2] += -1
+    # phase 3:
+    if candidates[cand][4][0:2] == 'AA':
+        candidates[cand][2] += 1
+    if candidates[cand][4][2] == 'A':
+        candidates[cand][2] += 1
+    if candidates[cand][4][9] == 'U':
+        candidates[cand][2] += 1
