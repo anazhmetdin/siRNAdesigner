@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser()
 filePathParser = parser.add_mutually_exclusive_group(required=True)
 filePathParser.add_argument("-a", "--accessionNumber",
                             help="Gene accession number in the NCBI nucleotide DB")
-filePathParser.add_argument("-g", "--geneSequence",
+filePathParser.add_argument("-s", "--geneSequence",
                             help="DNA sequence of the target gene")
 parser.add_argument("-e", "--entrezEmail",
                     help="Required when accessionNumber is provided, In case of\
@@ -197,3 +197,27 @@ for i in range(minStart, maxEnd):
                                     if candidate[2] in 'GCPercent':
                                         candidates[candidate] = [
                                             i+1, i+23, AUcount]
+
+# phase 2:
+compDict = {'A': 'U', 'T': 'A', 'C': 'G', 'G': 'C'}
+for cand in candidates:
+    guide = ''
+    passenger = ''
+    for nucleotide in range(20, -1, -1):
+        guide = guide + cand[nucleotide]
+    candidates[cand].append(guide)
+    for nucleotide in range(2, 23):
+        if cand[nucleotide] == 'T':
+            passenger = passenger + 'U'
+        else:
+            passenger = passenger + cand[nucleotide]
+    candidates[cand].append(passenger)
+    if candidates[cand][3][0] == 'U':
+        candidates[cand][2] += 2
+    if candidates[cand][3][0] == 'A':
+        candidates[cand][2] += 1
+    match = re.match(r'[A,U]{1,2}', candidates[cand][4][1:5])
+    if match:
+        candidates[cand][2] += 1
+    else:
+        candidates[cand][2] += -1
