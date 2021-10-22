@@ -1,5 +1,7 @@
 import argparse
 import numpy as np
+from Bio import Entrez
+import re
 
 parser = argparse.ArgumentParser()
 filePathParser = parser.add_mutually_exclusive_group(required=True)
@@ -7,12 +9,18 @@ filePathParser.add_argument("-a", "--accessionNumber",
                             help="Gene accession number in the NCBI nucleotide DB")
 filePathParser.add_argument("-s", "--geneSequence",
                             help="DNA sequence of the target gene")
+parser.add_argument("-e", "--entrezEmail",
+                    help="Required when accessionNumber is provided, In case of\
+                    excessive usage of the E-utilities, NCBI will attempt to contact\
+                    a user at the email address provided before blocking access to the\
+                    E-utilities")
 parser.add_argument("-o", "--outputPrefix", default="",
                     help="Output file prefix path")
 args = parser.parse_args()
 
 
 accessionNumber = args.accessionNumber
+entrezEmail = args.entrezEmail
 geneSequence = args.geneSequence
 outputPrefix = args.outputPrefix
 
@@ -113,3 +121,42 @@ class basicAligner():
 
     def get_best(self):
         return self.best_match
+
+
+def get_exons(Acc):
+    handle = Entrez.efetch(db="nucleotide", id=Acc, retmode="xml")
+    records = Entrez.read(handle)
+    str_records = str(records[0])
+    exons = []
+
+    while str_records.find("'GBFeature_key': 'exon'") != -1:
+        exons.append([])
+        exon_indx = str_records.find("'GBFeature_key': 'exon'")
+        narrow = ''
+        for i in range(20):
+            narrow += str_records[exon_indx+47+i]
+        narrow = narrow.split(',')[0][1:-1]
+        min1 = int(narrow[0:narrow.find('.')])
+        exons[-1].append(min1)
+        max2 = int(narrow[narrow.find('.')+2::])
+        exons[-1].append(max2)
+        str_records = str_records[0:str_records.find(
+            "'GBFeature_key': 'exon'")]+'0'+str_records[str_records.find("'GBFeature_key': 'exon'")+1::]
+
+    exons_seq = []
+    for i in exons:
+        exons_seq.append(records[0]['GBSeq_sequence'][i[0]-1:i[1]-1])
+
+    exons_seq = ''.join(exons_seq)
+
+    return exons_seq
+
+
+# Phase 1:
+if not (accessionNumber is None):
+    if not (entrezEmail is None):
+        Entrez.email = entrezEmail
+    gene = get_exons(accessionNumber).upper()
+    gene = re.sub(r"\s+", "", gene)
+else:
+    gene = geneSequence.upper()
