@@ -7,7 +7,7 @@ parser = argparse.ArgumentParser()
 filePathParser = parser.add_mutually_exclusive_group(required=True)
 filePathParser.add_argument("-a", "--accessionNumber",
                             help="Gene accession number in the NCBI nucleotide DB")
-filePathParser.add_argument("-s", "--geneSequence",
+filePathParser.add_argument("-g", "--geneSequence",
                             help="DNA sequence of the target gene")
 parser.add_argument("-e", "--entrezEmail",
                     help="Required when accessionNumber is provided, In case of\
@@ -152,7 +152,6 @@ def get_exons(Acc):
     return exons_seq
 
 
-# Phase 1:
 if not (accessionNumber is None):
     if not (entrezEmail is None):
         Entrez.email = entrezEmail
@@ -160,3 +159,41 @@ if not (accessionNumber is None):
     gene = re.sub(r"\s+", "", gene)
 else:
     gene = geneSequence.upper()
+minStart = 0
+maxEnd = len(gene)-23
+candidates = dict()
+# Phase 1:
+# Test each 23 nucleotide for some features
+for i in range(minStart, maxEnd):
+    candidate = gene[i:i+23]
+    Gcount = candidate.count('Gcount')
+    Ccount = candidate.count('Ccount')
+    GCcount = Gcount + Ccount
+    GCPercent = (GCcount/23)*100
+    if GCPercent > 32 and GCPercent < 55:  # 1st filter (GCPercent)
+        shortRepeatsFree = True
+        for j in range(23):  # 2nd filter (internal repeats)
+            if candidate[j:j+5] in candidate[j+5:23]:
+                shortRepeatsFree = False
+                break
+        if shortRepeatsFree:
+            # 3rd filter (GCPercent stretches)
+            match = re.match(r'GC{10}', candidate)
+            if match:
+                continue
+            else:
+                if candidate[20] in 'AT':  # 4th filter 5' end of guide A/U
+                    if candidate[2] in 'CG':  # 5th filter 5' end of passenger G/C
+                        Acount = candidate[13:21].count('A')
+                        Ucount = candidate[13:21].count('T')
+                        AUcount = Acount + Ucount
+                        # 6th filter at least 4 A/U residues in 5' guide 7bp
+                        if AUcount >= 4:
+                            # 7th filter No G at position 13 of passenger
+                            if candidate[14] in 'ATC':
+                                # 8th filter  A/U at position 19 in passenger
+                                if candidate[20] in 'AT':
+                                    # 9th filter Gcount/Ccount at position 19 in guide
+                                    if candidate[2] in 'GCPercent':
+                                        candidates[candidate] = [
+                                            i+1, i+23, AUcount]
