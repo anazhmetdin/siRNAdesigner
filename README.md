@@ -76,7 +76,21 @@ The following python packages are required:
 
 - In your Command Line environment:
 
-      python siRNADesigner.py -s agagtgtggtcaggcggctcggactgagcagactttccttatcccagt -t 1
+> python siRNADesigner.py -s agagtgtggtcaggcggctcggactgagcagactttccttatcccagt -t 1
 
 - this file will be genrated:
   siRNAcandidates.csv
+
+## References:
+
+- https://biologywise.com/types-of-gene-therapy
+- https://ghr.nlm.nih.gov/primer/genomicresearch/genomeediting
+- https://www.ncib.nlm.gov/pmc/articles/PMC3624098/
+- https://www.ncbi.nlm.gov/pmc/articles/PMC4441801/
+- http://www.genelink.com/sirna/RNAicustom.asp
+- https://www.ncbi.nlm.nih.gov/pmc/articles/PMC3371628/pdf/fgene-03-00102.pdf
+- http://www.protocol-online.org/prot/Protocols/
+- Rules-of-siRNA-design-for-RNA-interference--RNAi--3210.html
+- http://sidirect2.rnai.jp/doc/
+- Hong Zhou, Xiao Zeng, Yufang Wang and Benjamin Ray Seyfarth. (2006). A Three-Phase Algorithm for Computer Aided siRNA Design. Informatica. 357–364
+- http://www.biomedcentral.com/1471-2105/10/392
