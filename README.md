@@ -43,9 +43,9 @@ The following python packages are required:
 
 - ### One of the following input methods:
   - #### Accession number of the gene `-a`
-    NCBI accession number from the nucleotide database
+    NCBI accession number from the nucleotide database, Multiple accession numbers should be separated by ","
   - #### Sequence string `-s`
-    concatenated exons of the gene
+    concatenated exons of the gene, Multiple genes sequences should be separated by ","
   - #### Fasta file of the target gene(s) `-i`
     Fasta file path containing one targeted gene or more
 - ### Reduce off targets `-t`
@@ -70,7 +70,7 @@ The following python packages are required:
   - guide Tm
   - passenger Tm
 
-  in case of -i input method containing more than one target, multiple csv files will be written each named using the sequence ID from the fasta file
+  in case of -i input method containing more than one target, multiple csv files will be written each named using the sequence ID from the fasta file. Otherwise, multiple inputs will correspond to multiple csv files indexed by their input order
 
 ## Running Example:
 

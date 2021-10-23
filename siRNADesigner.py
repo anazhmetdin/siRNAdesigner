@@ -7,12 +7,14 @@ import math
 parser = argparse.ArgumentParser()
 inputParser = parser.add_mutually_exclusive_group(required=True)
 inputParser.add_argument("-a", "--accessionNumber",
-                         help="Gene accession number in the NCBI nucleotide DB")
+                         help="Gene accession number in the NCBI nucleotide DB.\
+                             Multiple accession numbers should be separated by ','")
 inputParser.add_argument("-s", "--geneSequence",
-                         help="DNA sequence of the target gene")
+                         help="DNA sequence of the target gene.\
+                             Multiple genes sequences should be separated by ','")
 inputParser.add_argument("-i", "--targetFasta",
                          help="Fasta file of one target or more")
-parser.add_argument("-e", "--entrezEmail", default="example@gmail.com",
+parser.add_argument("-e", "--entrezEmail",
                     help="optional when accessionNumber is provided, In case of\
                     excessive usage of the E-utilities, NCBI will attempt to contact\
                     a user at the email address provided before blocking access to the\
@@ -28,9 +30,11 @@ parser.add_argument("-o", "--outputPrefix", default="",
 args = parser.parse_args()
 
 
-accessionNumber = args.accessionNumber
+accessionNumber = args.accessionNumber if args.accessionNumber is None else args.accessionNumber.split(
+    ",")
 entrezEmail = args.entrezEmail
-geneSequence = args.geneSequence
+geneSequence = args.geneSequence if args.geneSequence is None else args.geneSequence.split(
+    ",")
 targetFasta = args.targetFasta
 outputPrefix = [args.outputPrefix] if args.outputPrefix != "" else [
     "siRNAcandidates"]
@@ -281,8 +285,10 @@ def meltingTemp(seq, compSeq, Na=0.1, CT=1e-4, A=-10.8, R=1.987):
 if not (accessionNumber is None):
     if not (entrezEmail is None):
         Entrez.email = entrezEmail
-    gene = get_exons(accessionNumber).upper()
-    gene = [re.sub(r"\s+", "", gene)]
+    gene = [get_exons(x).upper() for x in accessionNumber]
+    gene = [re.sub(r"\s+", "", x) for x in gene]
+    if len(gene) != 1:
+        outputPrefix = [outputPrefix[0]+"_"+str(x+1) for x in range(len(gene))]
 elif not (targetFasta is None):
     geneFasta = SeqIO.parse(targetFasta, 'fasta')
     geneFastaUnpacked = [(x.seq.upper(), x.id) for x in geneFasta]
@@ -290,7 +296,9 @@ elif not (targetFasta is None):
     outputPrefix = [outputPrefix[0]+"_"+x[1] for x in geneFastaUnpacked]
     del geneFastaUnpacked
 else:
-    gene = [geneSequence.upper()]
+    gene = [x.upper() for x in geneSequence]
+    if len(gene) != 1:
+        outputPrefix = [outputPrefix[0]+"_"+str(x+1) for x in range(len(gene))]
 for geneIndx in range(len(gene)):
     minStart = 0
     maxEnd = len(gene[geneIndx])-22
