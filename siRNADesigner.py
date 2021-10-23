@@ -10,12 +10,13 @@ inputParser.add_argument("-a", "--accessionNumber",
                          help="Gene accession number in the NCBI nucleotide DB")
 inputParser.add_argument("-s", "--geneSequence",
                          help="DNA sequence of the target gene")
+inputParser.add_argument("-i", "--targetFasta",
+                         help="Fasta file of one target or more")
 parser.add_argument("-e", "--entrezEmail", default="example@gmail.com",
                     help="optional when accessionNumber is provided, In case of\
                     excessive usage of the E-utilities, NCBI will attempt to contact\
                     a user at the email address provided before blocking access to the\
                     E-utilities")
-offTargerParser = parser.add_argument_group()
 parser.add_argument("-t", "--reduceOffTargets", default=0,
                     help="Reduce off targets based on the melting temperatures of both\
                         the guide and the passenger RNA. In addition, it ensure that\
@@ -30,7 +31,9 @@ args = parser.parse_args()
 accessionNumber = args.accessionNumber
 entrezEmail = args.entrezEmail
 geneSequence = args.geneSequence
-outputPrefix = args.outputPrefix if args.outputPrefix != "" else "siRNAcandidates"
+targetFasta = args.targetFasta
+outputPrefix = [args.outputPrefix] if args.outputPrefix != "" else [
+    "siRNAcandidates"]
 reduceOffTargets = bool(int(args.reduceOffTargets))
 transcriptomePath = args.transcriptomePath
 
@@ -279,134 +282,141 @@ if not (accessionNumber is None):
     if not (entrezEmail is None):
         Entrez.email = entrezEmail
     gene = get_exons(accessionNumber).upper()
-    gene = re.sub(r"\s+", "", gene)
+    gene = [re.sub(r"\s+", "", gene)]
+elif not (targetFasta is None):
+    geneFasta = SeqIO.parse(targetFasta, 'fasta')
+    geneFastaUnpacked = [(x.seq.upper(), x.id) for x in geneFasta]
+    gene = [x[0] for x in geneFastaUnpacked]
+    outputPrefix = [outputPrefix[0]+"_"+x[1] for x in geneFastaUnpacked]
+    del geneFastaUnpacked
 else:
-    gene = geneSequence.upper()
-minStart = 0
-maxEnd = len(gene)-22
-candidates = dict()
-# Phase 1:
-# Test each 23 nucleotide for some features
-for i in range(minStart, maxEnd):
-    candidate = gene[i:i+23]
-    if candidate in candidates:
-        continue
-    Gcount = candidate.count('G')
-    Ccount = candidate.count('C')
-    GCcount = Gcount + Ccount
-    GCPercent = (GCcount/23)*100
-    if GCPercent > 32 and GCPercent < 55:  # 1st filter (GCPercent)
-        shortRepeatsFree = True
-        for j in range(23):  # 2nd filter (internal repeats)
-            if candidate[j:j+5] in candidate[j+5:23]:
-                shortRepeatsFree = False
-                break
-        if shortRepeatsFree:
-            # 3rd filter (GCPercent stretches)
-            match = re.match(r'GC{10}', candidate)
-            if match:
-                continue
-            else:
-                if candidate[20] in 'AT':  # 4th filter 5' end of guide A/U
-                    if candidate[2] in 'CG':  # 5th filter 5' end of passenger G/C
-                        Acount = candidate[13:21].count('A')
-                        Ucount = candidate[13:21].count('T')
-                        AUcount = Acount + Ucount
-                        # 6th filter at least 4 A/U residues in 5' guide 7bp
-                        if AUcount >= 4:
-                            # 7th filter No G at position 13 of passenger
-                            if candidate[14] in 'ATC':
-                                # 8th filter  A/U at position 19 in passenger
-                                if candidate[20] in 'AT':
-                                    # 9th filter Gcount/Ccount at position 19 in guide
-                                    if candidate[2] in 'GCPercent':
-                                        candidates[candidate] = [
-                                            i+1, i+23, AUcount]
-
-compDict = {'A': 'U', 'T': 'A', 'C': 'G', 'G': 'C'}
-alignment = basicAligner()
-success = dict()
-for cand in candidates:
-    guide = ''
-    passenger = ''
-    for nucleotide in range(20, -1, -1):
-        guide = guide + compDict[cand[nucleotide]]
-    candidates[cand].append(guide)
-    for nucleotide in range(2, 23):
-        if cand[nucleotide] == 'T':
-            passenger = passenger + 'U'
-        else:
-            passenger = passenger + cand[nucleotide]
-    candidates[cand].append(passenger)
-    # phase 2:
-    if candidates[cand][3][0] == 'U':
-        candidates[cand][2] += 2
-    if candidates[cand][3][0] == 'A':
-        candidates[cand][2] += 1
-    match = re.match(r'[A,U]{1,2}', candidates[cand][4][1:5])
-    if match:
-        candidates[cand][2] += 1
-    else:
-        candidates[cand][2] += -1
-    # phase 3:
-    if candidates[cand][4][0:2] == 'AA':
-        candidates[cand][2] += 1
-    if candidates[cand][4][2] == 'A':
-        candidates[cand][2] += 1
-    if candidates[cand][4][9] == 'U':
-        candidates[cand][2] += 1
-    # phase 4:
-    seqGuide = ''
-    compSeqGuide = ''
-    for nucleotide in candidates[cand][3]:
-        if nucleotide == 'U':
-            seqGuide += 'T'
-            compSeqGuide += 'A'
-        else:
-            seqGuide += nucleotide
-            compSeqGuide += compDict[nucleotide]
-
-    seqPassenger = ''
-    compSeqPassenger = ''
-    for nucleotide in candidates[cand][4]:
-        if nucleotide == 'U':
-            seqPassenger += 'T'
-            compSeqPassenger += 'A'
-        else:
-            seqPassenger += nucleotide
-            compSeqPassenger += compDict[nucleotide]
-    if reduceOffTargets:
-        TmGuide = meltingTemp(seqGuide[1:8], compSeqGuide[1:8])
-        TmPass = meltingTemp(seqPassenger[1:8], compSeqPassenger[1:8])
-        if TmPass >= 21.5 or TmGuide >= 21.5:
+    gene = [geneSequence.upper()]
+for geneIndx in range(len(gene)):
+    minStart = 0
+    maxEnd = len(gene[geneIndx])-22
+    candidates = dict()
+    # Phase 1:
+    # Test each 23 nucleotide for some features
+    for i in range(minStart, maxEnd):
+        candidate = gene[geneIndx][i:i+24]
+        if candidate in candidates:
             continue
-        candidates[cand].append(TmGuide)
-        candidates[cand].append(TmPass)
-        if not (transcriptomePath is None):
-            passengerMisM = 2
-            guideMisM = 2
-            valid = True
-            fasta_sequences = SeqIO.parse(transcriptomePath, 'fasta')
-            for fasta in fasta_sequences:
-                seq = str(fasta.seq)
-                if "*" in seq:
-                    seq = seq.replace("*", "")
-                alignment.align(compSeqGuide, seq)
-                guideMisM = min(alignment.mismatches, guideMisM)
-                if guideMisM < 2:
-                    valid = False
+        Gcount = candidate.count('G')
+        Ccount = candidate.count('C')
+        GCcount = Gcount + Ccount
+        GCPercent = (GCcount/23)*100
+        if GCPercent > 32 and GCPercent < 55:  # 1st filter (GCPercent)
+            shortRepeatsFree = True
+            for j in range(23):  # 2nd filter (internal repeats)
+                if candidate[j:j+5] in candidate[j+5:23]:
+                    shortRepeatsFree = False
                     break
-                alignment.align(compSeqPassenger, seq)
-                passengerMisM = min(alignment.mismatches, passengerMisM)
-                if passengerMisM < 2:
-                    valid = False
-                    break
-            if valid:
-                candidates[cand].append(guideMisM)
-                candidates[cand].append(passengerMisM)
-    success[cand] = candidates[cand]
+            if shortRepeatsFree:
+                # 3rd filter (GC stretches)
+                match = re.match(r'GC{10}', candidate)
+                if match:
+                    continue
+                else:
+                    if candidate[20] in 'AT':  # 4th filter 5' end of guide A/U
+                        if candidate[2] in 'CG':  # 5th filter 5' end of passenger G/C
+                            Acount = candidate[13:21].count('A')
+                            Ucount = candidate[13:21].count('T')
+                            AUcount = Acount + Ucount
+                            # 6th filter at least 4 A/U residues in 5' guide 7bp
+                            if AUcount >= 4:
+                                # 7th filter No G at position 13 of passenger
+                                if candidate[14] in 'ATC':
+                                    # 8th filter  A/U at position 19 in passenger
+                                    if candidate[20] in 'AT':
+                                        # 9th filter G/C at position 19 in guide
+                                        if candidate[2] in 'GCPercent':
+                                            candidates[candidate] = [
+                                                i+1, i+23, AUcount]
 
-resultsFile = open(outputPrefix+".csv", 'w')
-for cand in success:
-    resultsFile.write(",".join([str(success[cand][0]), str(success[cand][1]),
-                                cand, *[str(x) for x in success[cand][2:]]]) + '\n')
+    compDict = {'A': 'U', 'T': 'A', 'C': 'G', 'G': 'C'}
+    alignment = basicAligner()
+    success = dict()
+    for cand in candidates:
+        guide = ''
+        passenger = ''
+        for nucleotide in range(20, -1, -1):
+            guide = guide + compDict[cand[nucleotide]]
+        candidates[cand].append(guide)
+        for nucleotide in range(2, 23):
+            if cand[nucleotide] == 'T':
+                passenger = passenger + 'U'
+            else:
+                passenger = passenger + cand[nucleotide]
+        candidates[cand].append(passenger)
+        # phase 2:
+        if candidates[cand][3][0] == 'U':
+            candidates[cand][2] += 2
+        if candidates[cand][3][0] == 'A':
+            candidates[cand][2] += 1
+        match = re.match(r'[A,U]{1,2}', candidates[cand][4][1:5])
+        if match:
+            candidates[cand][2] += 1
+        else:
+            candidates[cand][2] += -1
+        # phase 3:
+        if candidates[cand][4][0:2] == 'AA':
+            candidates[cand][2] += 1
+        if candidates[cand][4][2] == 'A':
+            candidates[cand][2] += 1
+        if candidates[cand][4][9] == 'U':
+            candidates[cand][2] += 1
+        # phase 4:
+        seqGuide = ''
+        compSeqGuide = ''
+        for nucleotide in candidates[cand][3]:
+            if nucleotide == 'U':
+                seqGuide += 'T'
+                compSeqGuide += 'A'
+            else:
+                seqGuide += nucleotide
+                compSeqGuide += compDict[nucleotide]
+
+        seqPassenger = ''
+        compSeqPassenger = ''
+        for nucleotide in candidates[cand][4]:
+            if nucleotide == 'U':
+                seqPassenger += 'T'
+                compSeqPassenger += 'A'
+            else:
+                seqPassenger += nucleotide
+                compSeqPassenger += compDict[nucleotide]
+        if reduceOffTargets:
+            TmGuide = meltingTemp(seqGuide[1:8], compSeqGuide[1:8])
+            TmPass = meltingTemp(seqPassenger[1:8], compSeqPassenger[1:8])
+            if TmPass >= 21.5 or TmGuide >= 21.5:
+                continue
+            candidates[cand].append(TmGuide)
+            candidates[cand].append(TmPass)
+            if not (transcriptomePath is None):
+                passengerMisM = 2
+                guideMisM = 2
+                valid = True
+                fasta_sequences = SeqIO.parse(transcriptomePath, 'fasta')
+                for fasta in fasta_sequences:
+                    seq = str(fasta.seq)
+                    if "*" in seq:
+                        seq = seq.replace("*", "")
+                    alignment.align(compSeqGuide, seq)
+                    guideMisM = min(alignment.mismatches, guideMisM)
+                    if guideMisM < 2:
+                        valid = False
+                        break
+                    alignment.align(compSeqPassenger, seq)
+                    passengerMisM = min(alignment.mismatches, passengerMisM)
+                    if passengerMisM < 2:
+                        valid = False
+                        break
+                if valid:
+                    candidates[cand].append(guideMisM)
+                    candidates[cand].append(passengerMisM)
+        success[cand] = candidates[cand]
+
+    resultsFile = open(outputPrefix[geneIndx]+".csv", 'w')
+    for cand in success:
+        resultsFile.write(",".join([str(success[cand][0]), str(success[cand][1]),
+                                    cand, *[str(x) for x in success[cand][2:]]]) + '\n')
