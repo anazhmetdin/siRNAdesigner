@@ -76,10 +76,18 @@ The following python packages are required:
 
 - In your Command Line environment:
 
-> python siRNADesigner.py -s agagtgtggtcaggcggctcggactgagcagactttccttatcccagt -t 1
+> python siRNADesigner.py -s ggctgccaagaacctgcaggaggcagaagaatggtacaaatccaagtttgctgacctctctgaggctgccaaccggaacaatgacgccctgcgccaggcaaagcaggagtccactgagtaccggagacaggtgcagtccctcacctgtgaagtggatgcccttaaaggaaccaatgagtccctggaacgccagatgcgtgaaatggaagagaactttgccgttgaagctgctaactacca -t 1
 
 - this file will be genrated:
   siRNAcandidates.csv
+
+### Results comparison
+
+![](./figures/sidirect.png)
+[siDirect](https://sidirect2.rnai.jp/) result
+
+![](./figures/this.png)
+This script result
 
 ## References:
 
